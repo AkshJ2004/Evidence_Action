@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Evidence Action - India Safe Water Program</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Top Navigation Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand">
+        <div class="brand-badge">Evidence Action</div>
+        <h1 class="brand-title">India Safe Water Program</h1>
+        <span class="brand-subtitle">Field Visit Planning & Approval System</span>
+      </div>
+      <div id="user-nav-panel" class="user-nav hidden">
+        <div class="user-info">
+          <span id="user-display-name" class="user-name"></span>
+          <span id="user-role-badge" class="badge"></span>
+        </div>
+        <button id="btn-logout" class="btn btn-secondary btn-sm" onclick="handleLogout()">Sign Out</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Global Alert / Toast -->
+  <div id="notification-bar" class="notification hidden"></div>
+
+  <main class="main-content">
+    <!-- ===================================================================== -->
+    <!-- 1. AUTHENTICATION VIEW (Displayed when not logged in)                -->
+    <!-- ===================================================================== -->
+    <section id="auth-section" class="card auth-card">
+      <div class="card-header">
+        <h2>Sign In to Platform</h2>
+        <p class="text-muted">Enter credentials or choose a pre-configured seed role below to test.</p>
+      </div>
+
+      <form id="login-form" onsubmit="handleLoginSubmit(event)">
+        <div class="form-group">
+          <label for="login-email">Email Address</label>
+          <input type="email" id="login-email" class="form-control" placeholder="e.g. officer1@evidenceaction.org" required>
+        </div>
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" class="form-control" placeholder="••••••••" required>
+        </div>
+        <button type="submit" id="btn-login" class="btn btn-primary btn-block">Sign In</button>
+      </form>
+
+      <div class="seed-accounts-box">
+        <div class="seed-title">Quick Demo Login (1-Click Test Accounts):</div>
+        <div class="seed-buttons-grid">
+          <button class="btn btn-outline btn-sm" onclick="quickLogin('officer1@evidenceaction.org')">
+            <strong>Field Officer 1</strong><br><small>Aarav Sharma</small>
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="quickLogin('officer2@evidenceaction.org')">
+            <strong>Field Officer 2</strong><br><small>Priya Patel</small>
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="quickLogin('approver@evidenceaction.org')">
+            <strong>HQ Approver</strong><br><small>Sunil Kumar</small>
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="quickLogin('admin@evidenceaction.org')">
+            <strong>HQ Admin</strong><br><small>Deepa Menon</small>
+          </button>
+        </div>
+        <p class="seed-hint">Default password for all test accounts: <code>Password123!</code></p>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- 2. MAIN APPLICATION WORKSPACE (Displayed when logged in)              -->
+    <!-- ===================================================================== -->
+    <div id="workspace-section" class="workspace hidden">
+      <!-- Role Context Banner -->
+      <div id="role-context-banner" class="context-banner">
+        <span id="role-context-icon" class="context-icon">ℹ️</span>
+        <div id="role-context-text" class="context-text"></div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="tab-nav">
+        <button id="tab-visits" class="tab-btn active" onclick="switchTab('visits')">Field Visits</button>
+        <button id="tab-create" class="tab-btn" onclick="switchTab('create')">+ Plan New Visit</button>
+        <button id="tab-summary" class="tab-btn hidden" onclick="switchTab('summary')">HQ Summary &amp; Budget</button>
+      </nav>
+
+      <!-- ------------------------------------------------------------------- -->
+      <!-- TAB A: VISITS LIST                                                  -->
+      <!-- ------------------------------------------------------------------- -->
+      <section id="view-visits" class="tab-view">
+        <div class="card">
+          <div class="filter-toolbar">
+            <div class="filter-group">
+              <label for="filter-status">Status:</label>
+              <select id="filter-status" class="form-control" onchange="applyFilters()">
+                <option value="">All Statuses</option>
+                <option value="DRAFT">DRAFT</option>
+                <option value="PENDING">PENDING</option>
+                <option value="APPROVED">APPROVED</option>
+                <option value="REJECTED">REJECTED</option>
+                <option value="COMPLETED">COMPLETED</option>
+              </select>
+            </div>
+
+            <div class="filter-group">
+              <label for="filter-location">Location:</label>
+              <select id="filter-location" class="form-control" onchange="applyFilters()">
+                <option value="">All Locations</option>
+              </select>
+            </div>
+
+            <button class="btn btn-secondary btn-sm" onclick="loadVisits()">Refresh List</button>
+          </div>
+
+          <!-- Visits Table -->
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Title &amp; Purpose</th>
+                  <th>Location</th>
+                  <th>Planned Date</th>
+                  <th>Est. Cost</th>
+                  <th>Officer</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="visits-table-body">
+                <tr><td colspan="7" class="text-center text-muted">Loading visits...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination Controls -->
+          <div class="pagination-footer">
+            <span id="pagination-info" class="text-muted">Showing 0 of 0</span>
+            <div class="pagination-buttons">
+              <button id="btn-prev-page" class="btn btn-secondary btn-sm" onclick="changePage(-1)">Previous</button>
+              <span id="current-page-num" class="page-indicator">1</span>
+              <button id="btn-next-page" class="btn btn-secondary btn-sm" onclick="changePage(1)">Next</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ------------------------------------------------------------------- -->
+      <!-- TAB B: CREATE NEW VISIT                                             -->
+      <!-- ------------------------------------------------------------------- -->
+      <section id="view-create" class="tab-view hidden">
+        <div class="card form-card">
+          <div class="card-header">
+            <h3>Plan a New Field Visit</h3>
+            <p class="text-muted">Visits start in <strong>DRAFT</strong> state. Once planned, submit them to HQ for review.</p>
+          </div>
+
+          <form id="create-visit-form" onsubmit="handleCreateVisitSubmit(event)">
+            <div class="form-group">
+              <label for="create-title">Visit Title *</label>
+              <input type="text" id="create-title" class="form-control" placeholder="e.g. Tapstand Chlorination Quality Check" required>
+            </div>
+
+            <div class="form-group">
+              <label for="create-purpose">Operational Purpose *</label>
+              <textarea id="create-purpose" class="form-control" rows="3" placeholder="Detail activities, technical objectives, and stakeholders to visit..." required></textarea>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group col">
+                <label for="create-location">Program Location *</label>
+                <select id="create-location" class="form-control" required>
+                  <option value="">Select a location...</option>
+                </select>
+              </div>
+
+              <div class="form-group col">
+                <label for="create-date">Planned Date *</label>
+                <input type="date" id="create-date" class="form-control" required>
+              </div>
+
+              <div class="form-group col">
+                <label for="create-cost">Estimated Cost (INR) *</label>
+                <input type="number" id="create-cost" class="form-control" step="0.01" min="0" placeholder="0.00" required>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">Save as DRAFT</button>
+              <button type="button" class="btn btn-secondary" onclick="switchTab('visits')">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- ------------------------------------------------------------------- -->
+      <!-- TAB C: HQ SUMMARY (Restricted to Approvers & Admins)                 -->
+      <!-- ------------------------------------------------------------------- -->
+      <section id="view-summary" class="tab-view hidden">
+        <div class="summary-container">
+          <!-- KPI Status Cards -->
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <div class="kpi-label">Total Visits</div>
+              <div id="kpi-total-visits" class="kpi-val">0</div>
+            </div>
+            <div class="kpi-card kpi-pending">
+              <div class="kpi-label">Pending Approval</div>
+              <div id="kpi-pending-visits" class="kpi-val">0</div>
+            </div>
+            <div class="kpi-card kpi-approved">
+              <div class="kpi-label">Approved</div>
+              <div id="kpi-approved-visits" class="kpi-val">0</div>
+            </div>
+            <div class="kpi-card kpi-completed">
+              <div class="kpi-label">Completed</div>
+              <div id="kpi-completed-visits" class="kpi-val">0</div>
+            </div>
+            <div class="kpi-card kpi-rejected">
+              <div class="kpi-label">Rejected</div>
+              <div id="kpi-rejected-visits" class="kpi-val">0</div>
+            </div>
+            <div class="kpi-card kpi-cost">
+              <div class="kpi-label">Total Planned Budget</div>
+              <div id="kpi-total-cost" class="kpi-val">₹0.00</div>
+            </div>
+          </div>
+
+          <!-- Per-Location Breakdown Table -->
+          <div class="card">
+            <div class="card-header">
+              <h3>Per-Location Activity &amp; Budget Allocation</h3>
+              <p class="text-muted">Summary breakdown of operational visits and allocated expenditure across facilities.</p>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Location Name</th>
+                    <th>District</th>
+                    <th>State</th>
+                    <th>Total Visits</th>
+                    <th>Pending</th>
+                    <th>Approved</th>
+                    <th>Completed</th>
+                    <th>Total Planned Cost</th>
+                  </tr>
+                </thead>
+                <tbody id="summary-locations-body">
+                  <tr><td colspan="8" class="text-center text-muted">Loading summary...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ======================================================================= -->
+  <!-- MODAL: VISIT DETAILS & AUDIT DECISION HISTORY                           -->
+  <!-- ======================================================================= -->
+  <div id="details-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-title">Visit Details</h3>
+        <button class="modal-close-btn" onclick="closeModal('details-modal')">&times;</button>
+      </div>
+      <div class="modal-body" id="modal-details-content">
+        <!-- Rendered via JS -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('details-modal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- MODAL: APPROVER DECISION (Approve or Reject with mandatory remark)       -->
+  <!-- ======================================================================= -->
+  <div id="decision-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="decision-modal-title">HQ Approval Decision</h3>
+        <button class="modal-close-btn" onclick="closeModal('decision-modal')">&times;</button>
+      </div>
+      <form id="decision-form" onsubmit="handleDecisionSubmit(event)">
+        <input type="hidden" id="decision-visit-id">
+        <input type="hidden" id="decision-action-type">
+
+        <div class="modal-body">
+          <p id="decision-instruction" class="decision-prompt"></p>
+          <div class="form-group">
+            <label for="decision-remarks">Written Remarks <span id="remarks-required-badge" class="text-danger">*</span></label>
+            <textarea id="decision-remarks" class="form-control" rows="3" placeholder="Provide feedback or justification for this operational decision..."></textarea>
+            <small id="decision-help-text" class="text-muted">A rejection must carry a written remark explaining the refusal.</small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" id="btn-decision-confirm" class="btn btn-primary">Confirm Decision</button>
+          <button type="button" class="btn btn-secondary" onclick="closeModal('decision-modal')">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- MODAL: EDIT VISIT (DRAFT or REJECTED)                                   -->
+  <!-- ======================================================================= -->
+  <div id="edit-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Edit Field Visit</h3>
+        <button class="modal-close-btn" onclick="closeModal('edit-modal')">&times;</button>
+      </div>
+      <form id="edit-visit-form" onsubmit="handleEditVisitSubmit(event)">
+        <input type="hidden" id="edit-visit-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="edit-title">Visit Title *</label>
+            <input type="text" id="edit-title" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="edit-purpose">Operational Purpose *</label>
+            <textarea id="edit-purpose" class="form-control" rows="3" required></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group col">
+              <label for="edit-location">Location *</label>
+              <select id="edit-location" class="form-control" required></select>
+            </div>
+            <div class="form-group col">
+              <label for="edit-date">Planned Date *</label>
+              <input type="date" id="edit-date" class="form-control" required>
+            </div>
+            <div class="form-group col">
+              <label for="edit-cost">Estimated Cost (INR) *</label>
+              <input type="number" id="edit-cost" class="form-control" step="0.01" min="0" required>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+          <button type="button" class="btn btn-secondary" onclick="closeModal('edit-modal')">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
