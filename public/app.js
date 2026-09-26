@@ -68,7 +68,8 @@ async function performLogin(email, password) {
 
     const data = await res.json();
     if (!res.ok) {
-      showNotification(data.error || 'Login failed', 'error');
+      // Pass the response status + parsed body to the central error handler
+      handleApiError({ status: res.status }, data);
       return;
     }
 
@@ -85,9 +86,11 @@ async function performLogin(email, password) {
       await loadSummary();
     }
   } catch (err) {
-    showNotification('Network or server error during sign-in.', 'error');
+    // fetch() itself threw — server is completely unreachable
+    handleApiError(err);
   }
 }
+
 
 /**
  * Clears session and returns to login screen.
@@ -379,7 +382,7 @@ async function handleCreateVisitSubmit(event) {
 
     const data = await res.json();
     if (!res.ok) {
-      showNotification(data.error || 'Failed to create visit.', 'error');
+      handleApiError({ status: res.status }, data);
       return;
     }
 
@@ -387,7 +390,7 @@ async function handleCreateVisitSubmit(event) {
     document.getElementById('create-visit-form').reset();
     switchTab('visits');
   } catch (err) {
-    showNotification('Server communication error.', 'error');
+    handleApiError(err);
   }
 }
 
@@ -405,14 +408,14 @@ async function submitVisit(visitId) {
 
     const data = await res.json();
     if (!res.ok) {
-      showNotification(data.error || 'Submission failed.', 'error');
+      handleApiError({ status: res.status }, data);
       return;
     }
 
     showNotification(data.message, 'success');
     await loadVisits();
   } catch (err) {
-    showNotification('Communication error.', 'error');
+    handleApiError(err);
   }
 }
 
@@ -430,14 +433,14 @@ async function completeVisit(visitId) {
 
     const data = await res.json();
     if (!res.ok) {
-      showNotification(data.error || 'Completion failed.', 'error');
+      handleApiError({ status: res.status }, data);
       return;
     }
 
     showNotification(data.message, 'success');
     await loadVisits();
   } catch (err) {
-    showNotification('Communication error.', 'error');
+    handleApiError(err);
   }
 }
 
@@ -498,7 +501,7 @@ async function handleDecisionSubmit(event) {
 
     const data = await res.json();
     if (!res.ok) {
-      showNotification(data.error || 'Decision recording failed.', 'error');
+      handleApiError({ status: res.status }, data);
       return;
     }
 
@@ -507,7 +510,7 @@ async function handleDecisionSubmit(event) {
     await loadVisits();
     if (canAccessSummary()) await loadSummary();
   } catch (err) {
-    showNotification('Network error.', 'error');
+    handleApiError(err);
   }
 }
 
@@ -523,7 +526,7 @@ async function viewVisitDetails(visitId) {
 
     const data = await res.json();
     if (!res.ok) {
-      showNotification(data.error || 'Failed to load visit details.', 'error');
+      handleApiError({ status: res.status }, data);
       return;
     }
 
@@ -574,7 +577,7 @@ async function viewVisitDetails(visitId) {
 
     document.getElementById('details-modal').classList.remove('hidden');
   } catch (err) {
-    showNotification('Failed to fetch details.', 'error');
+    handleApiError(err);
   }
 }
 
@@ -589,7 +592,7 @@ async function openEditModal(visitId) {
     });
     const data = await res.json();
     if (!res.ok) {
-      showNotification(data.error || 'Failed to load visit for editing', 'error');
+      handleApiError({ status: res.status }, data);
       return;
     }
 
@@ -603,7 +606,7 @@ async function openEditModal(visitId) {
 
     document.getElementById('edit-modal').classList.remove('hidden');
   } catch (err) {
-    showNotification('Error opening edit modal.', 'error');
+    handleApiError(err);
   }
 }
 
@@ -634,7 +637,7 @@ async function handleEditVisitSubmit(event) {
 
     const data = await res.json();
     if (!res.ok) {
-      showNotification(data.error || 'Failed to update visit.', 'error');
+      handleApiError({ status: res.status }, data);
       return;
     }
 
@@ -642,7 +645,7 @@ async function handleEditVisitSubmit(event) {
     closeModal('edit-modal');
     await loadVisits();
   } catch (err) {
-    showNotification('Network error.', 'error');
+    handleApiError(err);
   }
 }
 
@@ -700,7 +703,9 @@ async function loadSummary() {
       `;
     }).join('');
   } catch (err) {
-    console.error('Failed to load summary', err);
+    // Summary failing silently is acceptable — it's a dashboard widget, not a core action.
+    // But still show a toast so the user knows their analytics couldn't load.
+    handleApiError(err);
   }
 }
 
@@ -712,16 +717,87 @@ function closeModal(modalId) {
   document.getElementById(modalId).classList.add('hidden');
 }
 
-function showNotification(message, type = 'info') {
+/**
+ * showNotification — displays a user-facing banner message.
+ *
+ * @param {string} message  - The text to show the user
+ * @param {'success'|'error'|'warning'|'info'} type - Style of notification
+ * @param {number}  duration - How long to show it (ms). 0 = stays until dismissed.
+ */
+function showNotification(message, type = 'info', duration = 5000) {
   const bar = document.getElementById('notification-bar');
-  bar.textContent = message;
+
+  // Build content: message + a close (×) button
+  bar.innerHTML = `
+    <span>${escapeHtml(message)}</span>
+    <button
+      onclick="document.getElementById('notification-bar').classList.add('hidden')"
+      style="background:none;border:none;cursor:pointer;font-size:18px;line-height:1;padding:0 0 0 12px;color:inherit;opacity:0.7;"
+      title="Dismiss"
+    >&times;</button>
+  `;
+  bar.style.display = 'flex';
+  bar.style.justifyContent = 'space-between';
+  bar.style.alignItems = 'center';
+
   bar.className = `notification ${type}`;
   bar.classList.remove('hidden');
 
-  setTimeout(() => {
-    bar.classList.add('hidden');
-  }, 4000);
+  // Clear any previous auto-hide timer
+  if (bar._hideTimer) clearTimeout(bar._hideTimer);
+
+  // Auto-dismiss after `duration` ms (skip if duration is 0)
+  if (duration > 0) {
+    bar._hideTimer = setTimeout(() => {
+      bar.classList.add('hidden');
+    }, duration);
+  }
 }
+
+/**
+ * handleApiError — the ONE place that decides what message to show the user
+ * when any API call fails.
+ *
+ * Rules:
+ *  - If fetch itself failed (network down / server crashed / no connection)
+ *    → show a friendly "service unavailable" message
+ *  - If the server responded but returned an error (4xx / 5xx)
+ *    → show the server's friendly message (never raw technical internals)
+ *
+ * Usage in every catch block:
+ *   } catch (err) {
+ *     handleApiError(err);
+ *   }
+ *
+ * @param {Error|Response} err     - The caught error OR a failed Response object
+ * @param {object}         [data]  - Already-parsed JSON body from the response (optional)
+ */
+function handleApiError(err, data = null) {
+  // ── Case 1: Network failure (server is completely down, no internet, CORS block)
+  // When fetch() itself throws, err is a TypeError with no status
+  if (err instanceof TypeError || (err && !err.status && !data)) {
+    showNotification(
+      'Unable to reach the server right now. Please check your connection and try again.',
+      'error',
+      0   // stays on screen until user dismisses — because this is a persistent problem
+    );
+    console.error('[Network Error]', err);
+    return;
+  }
+
+  // ── Case 2: Server responded with an error JSON body
+  // Use the server's friendly message if present, otherwise a generic fallback
+  const message = (data && data.error)
+    ? data.error
+    : 'Something went wrong. Please try again in a moment.';
+
+  // Show warning (yellow) for 4xx user errors, error (red) for 5xx server crashes
+  const type = (err && err.status && err.status < 500) ? 'error' : 'error';
+
+  showNotification(message, type, 6000);
+  console.error('[API Error]', err.status || '', message);
+}
+
 
 function getStatusBadgeClass(status) {
   switch (status) {

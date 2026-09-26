@@ -1,30 +1,80 @@
 /**
  * Centralized Error Handling Middleware
- * 
- * Ensures all unhandled errors return standardized JSON responses.
- * Never leaks database connection passwords, credentials, or internal stack traces to clients.
+ *
+ * Rule: Log the FULL technical error on the server (for developers to debug).
+ *       Send only a safe, friendly message to the client (so users are not confused
+ *       by stack traces, SQL errors, or internal system details).
+ *
+ * The client never learns:
+ *   - Database query text or table names
+ *   - Stack traces or file paths
+ *   - Environment config or credentials
+ *   - Which specific system component failed
  */
 function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-vars
-  console.error(' [Server Error]:', err.message);
 
-  // PostgreSQL check constraint or foreign key constraint violation
+  // ─── 1. Log everything on the server so developers can investigate ────────
+  console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.error(' [Server Error] at:', new Date().toISOString());
+  console.error(' Route:  ', req.method, req.originalUrl);
+  console.error(' User:   ', req.user ? `${req.user.email} (${req.user.role})` : 'Unauthenticated');
+  console.error(' Message:', err.message);
+  console.error(' Code:   ', err.code || 'N/A');
+  if (process.env.NODE_ENV !== 'production') {
+    console.error(' Stack:', err.stack);
+  }
+  console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+  // ─── 2. Map database constraint errors to friendly messages ───────────────
+
+  // Duplicate unique value (e.g., trying to register same email twice)
   if (err.code === '23505') {
-    return res.status(409).json({ error: 'A record with that unique value already exists.' });
+    return res.status(409).json({
+      error: 'This action could not be completed because a duplicate record already exists.',
+      friendly: true,
+    });
   }
+
+  // Foreign key violation (e.g., referencing a deleted location)
   if (err.code === '23503') {
-    return res.status(400).json({ error: 'Referenced entity does not exist or cannot be removed due to foreign key constraints.' });
+    return res.status(400).json({
+      error: 'This action could not be completed because it references data that no longer exists. Please refresh and try again.',
+      friendly: true,
+    });
   }
+
+  // Check constraint violation (e.g., rejection without remarks, negative cost)
   if (err.code === '23514') {
-    return res.status(400).json({ error: 'Data violates database validation constraints (e.g., negative cost or empty rejection remark).' });
+    return res.status(400).json({
+      error: 'The submitted data did not meet the required conditions. Please review your inputs and try again.',
+      friendly: true,
+    });
   }
+
+  // ─── 3. Map HTTP status codes to friendly messages ────────────────────────
 
   const statusCode = err.statusCode || 500;
-  const message = statusCode === 500 ? 'An internal server error occurred.' : err.message;
 
-  return res.status(statusCode).json({
-    error: message,
-    ...(process.env.NODE_ENV === 'development' && { details: err.message }),
+  // 4xx errors are caused by the client — their message is already user-friendly
+  // (these are thrown intentionally in route handlers with clear messages)
+  if (statusCode >= 400 && statusCode < 500) {
+    return res.status(statusCode).json({
+      error: err.message,
+      friendly: true,
+    });
+  }
+
+  // ─── 4. 500-level errors: server/infrastructure failure ───────────────────
+  // Do NOT expose internal details. Show a generic, calm message.
+  return res.status(500).json({
+    error: 'Something went wrong on our end. The team has been notified. Please try again in a moment.',
+    friendly: true,
+    // Only in development mode, attach a hint — NEVER in production
+    ...(process.env.NODE_ENV === 'development' && {
+      dev_hint: 'Check server console for full error details. This message is only visible in development mode.',
+    }),
   });
 }
 
 module.exports = errorHandler;
+
