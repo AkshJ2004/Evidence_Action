@@ -1,9 +1,4 @@
-/**
- * HQ Summary Routes
- * 
- * Section 3.2: Counts of visits by status, and a per-location breakdown with total planned cost.
- * Restricted to HQ Approvers and Admins.
- */
+
 const express = require('express');
 const db = require('../db');
 const { roles, visitStatus } = require('../config');
@@ -15,15 +10,9 @@ const router = express.Router();
 router.use(authenticate);
 router.use(requireRole(roles.HQ_APPROVER, roles.ADMIN));
 
-/**
- * GET /api/summary
- * Returns HQ operational overview:
- * 1. Global counts of visits grouped by status
- * 2. Per-location breakdown showing total visits and total planned cost
- */
 router.get('/', async (req, res, next) => {
   try {
-    // 1. Overall counts by status
+    
     const statusCountsResult = await db.query(`
       SELECT 
         status, 
@@ -33,7 +22,6 @@ router.get('/', async (req, res, next) => {
       GROUP BY status
     `);
 
-    // Ensure all defined statuses exist in output map even if count is 0
     const countsByStatus = {};
     for (const st of Object.values(visitStatus)) {
       countsByStatus[st] = { count: 0, total_cost: 0 };
@@ -50,7 +38,6 @@ router.get('/', async (req, res, next) => {
       globalTotalCost += cost;
     }
 
-    // 2. Per-location breakdown with total planned cost and counts
     const locationBreakdownResult = await db.query(`
       SELECT 
         l.id AS location_id,

@@ -1,9 +1,4 @@
-/**
- * Authorization Middleware
- * 
- * Requirement 3.3: Authorisation is enforced on the server.
- * Restricts access to endpoints based on user roles.
- */
+
 function requireRole(...allowedRoles) {
   return (req, res, next) => {
     if (!req.user) {

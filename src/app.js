@@ -1,8 +1,4 @@
-/**
- * Express Application Configuration
- * 
- * Configures Express middleware, security, static file serving, and API route mounts.
- */
+
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
@@ -15,21 +11,17 @@ const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
-// Standard middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve frontend static assets from public/ directory
 app.use(express.static(path.join(__dirname, '../public')));
 
-// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/visits', visitRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/summary', summaryRoutes);
 
-// Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'healthy',
@@ -38,17 +30,14 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// 404 handler for unmatched API routes
 app.use('/api', (req, res) => {
   res.status(404).json({ error: `API endpoint '${req.originalUrl}' not found.` });
 });
 
-// Fallback to index.html for frontend single-page navigation
 app.use((req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-// Centralized error handler
 app.use(errorHandler);
 
 module.exports = app;

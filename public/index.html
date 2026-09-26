@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Top Navigation Header -->
+  
   <header class="app-header">
     <div class="header-container">
       <div class="brand">
@@ -25,13 +25,13 @@
     </div>
   </header>
 
-  <!-- Global Alert / Toast -->
+  
   <div id="notification-bar" class="notification hidden"></div>
 
   <main class="main-content">
-    <!-- ===================================================================== -->
-    <!-- 1. AUTHENTICATION VIEW (Displayed when not logged in)                -->
-    <!-- ===================================================================== -->
+    
+    
+    
     <section id="auth-section" class="card auth-card">
       <div class="card-header">
         <h2>Sign In to Platform</h2>
@@ -70,26 +70,26 @@
       </div>
     </section>
 
-    <!-- ===================================================================== -->
-    <!-- 2. MAIN APPLICATION WORKSPACE (Displayed when logged in)              -->
-    <!-- ===================================================================== -->
+    
+    
+    
     <div id="workspace-section" class="workspace hidden">
-      <!-- Role Context Banner -->
+      
       <div id="role-context-banner" class="context-banner">
         <span id="role-context-icon" class="context-icon">ℹ️</span>
         <div id="role-context-text" class="context-text"></div>
       </div>
 
-      <!-- Navigation Tabs -->
+      
       <nav class="tab-nav">
         <button id="tab-visits" class="tab-btn active" onclick="switchTab('visits')">Field Visits</button>
         <button id="tab-create" class="tab-btn" onclick="switchTab('create')">+ Plan New Visit</button>
         <button id="tab-summary" class="tab-btn hidden" onclick="switchTab('summary')">HQ Summary &amp; Budget</button>
       </nav>
 
-      <!-- ------------------------------------------------------------------- -->
-      <!-- TAB A: VISITS LIST                                                  -->
-      <!-- ------------------------------------------------------------------- -->
+      
+      
+      
       <section id="view-visits" class="tab-view">
         <div class="card">
           <div class="filter-toolbar">
@@ -115,7 +115,7 @@
             <button class="btn btn-secondary btn-sm" onclick="loadVisits()">Refresh List</button>
           </div>
 
-          <!-- Visits Table -->
+          
           <div class="table-responsive">
             <table class="data-table">
               <thead>
@@ -135,7 +135,7 @@
             </table>
           </div>
 
-          <!-- Pagination Controls -->
+          
           <div class="pagination-footer">
             <span id="pagination-info" class="text-muted">Showing 0 of 0</span>
             <div class="pagination-buttons">
@@ -147,9 +147,9 @@
         </div>
       </section>
 
-      <!-- ------------------------------------------------------------------- -->
-      <!-- TAB B: CREATE NEW VISIT                                             -->
-      <!-- ------------------------------------------------------------------- -->
+      
+      
+      
       <section id="view-create" class="tab-view hidden">
         <div class="card form-card">
           <div class="card-header">
@@ -195,12 +195,12 @@
         </div>
       </section>
 
-      <!-- ------------------------------------------------------------------- -->
-      <!-- TAB C: HQ SUMMARY (Restricted to Approvers & Admins)                 -->
-      <!-- ------------------------------------------------------------------- -->
+      
+      
+      
       <section id="view-summary" class="tab-view hidden">
         <div class="summary-container">
-          <!-- KPI Status Cards -->
+          
           <div class="kpi-grid">
             <div class="kpi-card">
               <div class="kpi-label">Total Visits</div>
@@ -228,7 +228,7 @@
             </div>
           </div>
 
-          <!-- Per-Location Breakdown Table -->
+          
           <div class="card">
             <div class="card-header">
               <h3>Per-Location Activity &amp; Budget Allocation</h3>
@@ -259,9 +259,9 @@
     </div>
   </main>
 
-  <!-- ======================================================================= -->
-  <!-- MODAL: VISIT DETAILS & AUDIT DECISION HISTORY                           -->
-  <!-- ======================================================================= -->
+  
+  
+  
   <div id="details-modal" class="modal-overlay hidden">
     <div class="modal-card">
       <div class="modal-header">
@@ -269,7 +269,7 @@
         <button class="modal-close-btn" onclick="closeModal('details-modal')">&times;</button>
       </div>
       <div class="modal-body" id="modal-details-content">
-        <!-- Rendered via JS -->
+        
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeModal('details-modal')">Close</button>
@@ -277,9 +277,9 @@
     </div>
   </div>
 
-  <!-- ======================================================================= -->
-  <!-- MODAL: APPROVER DECISION (Approve or Reject with mandatory remark)       -->
-  <!-- ======================================================================= -->
+  
+  
+  
   <div id="decision-modal" class="modal-overlay hidden">
     <div class="modal-card">
       <div class="modal-header">
@@ -306,9 +306,9 @@
     </div>
   </div>
 
-  <!-- ======================================================================= -->
-  <!-- MODAL: EDIT VISIT (DRAFT or REJECTED)                                   -->
-  <!-- ======================================================================= -->
+  
+  
+  
   <div id="edit-modal" class="modal-overlay hidden">
     <div class="modal-card">
       <div class="modal-header">

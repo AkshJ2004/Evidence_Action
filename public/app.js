@@ -1,11 +1,4 @@
-/**
- * Evidence Action - Operations Management Platform Frontend
- * 
- * Simple, transparent vanilla JavaScript single-page client.
- * Exercises all REST API endpoints and demonstrates server-side state enforcement.
- */
 
-// Application State
 const state = {
   token: localStorage.getItem('ea_auth_token') || null,
   currentUser: JSON.parse(localStorage.getItem('ea_auth_user') || 'null'),
@@ -16,9 +9,6 @@ const state = {
   activeTab: 'visits',
 };
 
-// ==============================================================================
-// 1. INITIALIZATION & LIFECYCLE
-// ==============================================================================
 document.addEventListener('DOMContentLoaded', async () => {
   if (state.token && state.currentUser) {
     showWorkspace();
@@ -32,13 +22,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-// ==============================================================================
-// 2. AUTHENTICATION & QUICK DEMO LOGINS
-// ==============================================================================
-
-/**
- * Handles regular login form submission.
- */
 async function handleLoginSubmit(event) {
   event.preventDefault();
   const email = document.getElementById('login-email').value;
@@ -46,18 +29,12 @@ async function handleLoginSubmit(event) {
   await performLogin(email, password);
 }
 
-/**
- * Quick 1-click login for evaluator / tester.
- */
 async function quickLogin(email) {
   document.getElementById('login-email').value = email;
   document.getElementById('login-password').value = 'Password123!';
   await performLogin(email, 'Password123!');
 }
 
-/**
- * Executes login request to POST /api/auth/login.
- */
 async function performLogin(email, password) {
   try {
     const res = await fetch('/api/auth/login', {
@@ -68,7 +45,7 @@ async function performLogin(email, password) {
 
     const data = await res.json();
     if (!res.ok) {
-      // Pass the response status + parsed body to the central error handler
+      
       handleApiError({ status: res.status }, data);
       return;
     }
@@ -86,15 +63,11 @@ async function performLogin(email, password) {
       await loadSummary();
     }
   } catch (err) {
-    // fetch() itself threw — server is completely unreachable
+    
     handleApiError(err);
   }
 }
 
-
-/**
- * Clears session and returns to login screen.
- */
 function handleLogout() {
   state.token = null;
   state.currentUser = null;
@@ -103,10 +76,6 @@ function handleLogout() {
   showNotification('You have signed out.', 'success');
   showAuth();
 }
-
-// ==============================================================================
-// 3. UI STATE & VIEW SWITCHING
-// ==============================================================================
 
 function showAuth() {
   document.getElementById('auth-section').classList.remove('hidden');
@@ -119,13 +88,11 @@ function showWorkspace() {
   document.getElementById('workspace-section').classList.remove('hidden');
   document.getElementById('user-nav-panel').classList.remove('hidden');
 
-  // Update header user badge
   document.getElementById('user-display-name').textContent = state.currentUser.full_name;
   const roleBadge = document.getElementById('user-role-badge');
   roleBadge.textContent = state.currentUser.role.replace('_', ' ');
   roleBadge.className = 'badge badge-role';
 
-  // Update context banner based on role
   const banner = document.getElementById('role-context-text');
   if (state.currentUser.role === 'FIELD_OFFICER') {
     banner.innerHTML = `<strong>Field Officer Mode:</strong> You can plan new visits (starts in DRAFT), submit them to HQ for approval, edit returned visits, and mark your approved visits as completed. You only see your own visits.`;
@@ -161,10 +128,6 @@ function switchTab(tabName) {
   if (tabName === 'summary') loadSummary();
 }
 
-// ==============================================================================
-// 4. LOCATIONS API
-// ==============================================================================
-
 async function loadLocations() {
   try {
     const res = await fetch('/api/locations', {
@@ -174,7 +137,6 @@ async function loadLocations() {
     const data = await res.json();
     state.locations = data.locations;
 
-    // Populate filter dropdown
     const filterLoc = document.getElementById('filter-location');
     filterLoc.innerHTML = '<option value="">All Locations</option>';
     state.locations.forEach(loc => {
@@ -184,7 +146,6 @@ async function loadLocations() {
       filterLoc.appendChild(opt);
     });
 
-    // Populate create dropdown
     const createLoc = document.getElementById('create-location');
     createLoc.innerHTML = '<option value="">Select a location...</option>';
     state.locations.forEach(loc => {
@@ -194,7 +155,6 @@ async function loadLocations() {
       createLoc.appendChild(opt);
     });
 
-    // Populate edit dropdown
     const editLoc = document.getElementById('edit-location');
     editLoc.innerHTML = '';
     state.locations.forEach(loc => {
@@ -207,10 +167,6 @@ async function loadLocations() {
     console.error('Failed to load locations', err);
   }
 }
-
-// ==============================================================================
-// 5. VISITS API (LIST, CREATE, UPDATE, LIFECYCLE)
-// ==============================================================================
 
 async function loadVisits() {
   const tbody = document.getElementById('visits-table-body');
@@ -258,19 +214,16 @@ function renderVisitsTable() {
     const costFormatted = Number(v.estimated_cost).toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
     const plannedDateStr = v.planned_date.split('T')[0];
 
-    // Status Badge Class
     let badgeClass = 'badge-draft';
     if (v.status === 'PENDING') badgeClass = 'badge-pending';
     if (v.status === 'APPROVED') badgeClass = 'badge-approved';
     if (v.status === 'REJECTED') badgeClass = 'badge-rejected';
     if (v.status === 'COMPLETED') badgeClass = 'badge-completed';
 
-    // Action buttons based strictly on Section 2.3 Visit lifecycle rules
     let actionButtons = `
       <button class="btn btn-outline btn-sm" onclick="viewVisitDetails('${v.id}')">View</button>
     `;
 
-    // 1. DRAFT state actions
     if (v.status === 'DRAFT' && isCreator) {
       actionButtons += `
         <button class="btn btn-primary btn-sm" onclick="submitVisit('${v.id}')">Submit</button>
@@ -278,9 +231,8 @@ function renderVisitsTable() {
       `;
     }
 
-    // 2. PENDING state actions
     if (v.status === 'PENDING') {
-      // Rule: An approver — never the creator
+      
       if (isApproverOrAdmin && !isCreator) {
         actionButtons += `
           <button class="btn btn-primary btn-sm" onclick="openDecisionModal('${v.id}', 'APPROVE')">Approve</button>
@@ -291,7 +243,6 @@ function renderVisitsTable() {
       }
     }
 
-    // 3. REJECTED state actions
     if (v.status === 'REJECTED' && isCreator) {
       actionButtons += `
         <button class="btn btn-secondary btn-sm" onclick="openEditModal('${v.id}')">Edit</button>
@@ -299,14 +250,11 @@ function renderVisitsTable() {
       `;
     }
 
-    // 4. APPROVED state actions
     if (v.status === 'APPROVED' && isCreator) {
       actionButtons += `
         <button class="btn btn-primary btn-sm" onclick="completeVisit('${v.id}')">Complete</button>
       `;
     }
-
-    // 5. COMPLETED is terminal - no lifecycle buttons needed
 
     return `
       <tr>
@@ -353,9 +301,6 @@ function applyFilters() {
   loadVisits();
 }
 
-/**
- * POST /api/visits (Create Visit)
- */
 async function handleCreateVisitSubmit(event) {
   event.preventDefault();
   const title = document.getElementById('create-title').value;
@@ -394,9 +339,6 @@ async function handleCreateVisitSubmit(event) {
   }
 }
 
-/**
- * POST /api/visits/:id/submit (DRAFT -> PENDING or REJECTED -> PENDING)
- */
 async function submitVisit(visitId) {
   if (!confirm('Submit this visit to HQ for approval review?')) return;
 
@@ -419,9 +361,6 @@ async function submitVisit(visitId) {
   }
 }
 
-/**
- * POST /api/visits/:id/complete (APPROVED -> COMPLETED)
- */
 async function completeVisit(visitId) {
   if (!confirm('Mark this approved visit as COMPLETED? Once completed, it cannot be modified.')) return;
 
@@ -443,10 +382,6 @@ async function completeVisit(visitId) {
     handleApiError(err);
   }
 }
-
-// ==============================================================================
-// 6. APPROVER DECISION MODAL & LOGIC (Approve / Reject)
-// ==============================================================================
 
 function openDecisionModal(visitId, action) {
   document.getElementById('decision-visit-id').value = visitId;
@@ -514,10 +449,6 @@ async function handleDecisionSubmit(event) {
   }
 }
 
-// ==============================================================================
-// 7. VISIT DETAILS & AUDIT DECISION HISTORY
-// ==============================================================================
-
 async function viewVisitDetails(visitId) {
   try {
     const res = await fetch(`/api/visits/${visitId}`, {
@@ -580,10 +511,6 @@ async function viewVisitDetails(visitId) {
     handleApiError(err);
   }
 }
-
-// ==============================================================================
-// 8. EDIT VISIT (DRAFT or REJECTED)
-// ==============================================================================
 
 async function openEditModal(visitId) {
   try {
@@ -649,10 +576,6 @@ async function handleEditVisitSubmit(event) {
   }
 }
 
-// ==============================================================================
-// 9. HQ SUMMARY & ANALYTICS
-// ==============================================================================
-
 async function loadSummary() {
   if (!canAccessSummary()) return;
 
@@ -669,7 +592,6 @@ async function loadSummary() {
 
     const { summary } = await res.json();
 
-    // Populate KPI Cards
     document.getElementById('kpi-total-visits').textContent = summary.total_visits;
     document.getElementById('kpi-pending-visits').textContent = summary.status_counts.PENDING.count;
     document.getElementById('kpi-approved-visits').textContent = summary.status_counts.APPROVED.count;
@@ -680,7 +602,6 @@ async function loadSummary() {
       currency: 'INR',
     });
 
-    // Populate Location Breakdown Table
     const tbody = document.getElementById('summary-locations-body');
     if (!summary.location_breakdown || summary.location_breakdown.length === 0) {
       tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No location summary data available.</td></tr>';
@@ -703,31 +624,18 @@ async function loadSummary() {
       `;
     }).join('');
   } catch (err) {
-    // Summary failing silently is acceptable — it's a dashboard widget, not a core action.
-    // But still show a toast so the user knows their analytics couldn't load.
+    
     handleApiError(err);
   }
 }
-
-// ==============================================================================
-// 10. UTILITIES & MODAL HELPERS
-// ==============================================================================
 
 function closeModal(modalId) {
   document.getElementById(modalId).classList.add('hidden');
 }
 
-/**
- * showNotification — displays a user-facing banner message.
- *
- * @param {string} message  - The text to show the user
- * @param {'success'|'error'|'warning'|'info'} type - Style of notification
- * @param {number}  duration - How long to show it (ms). 0 = stays until dismissed.
- */
 function showNotification(message, type = 'info', duration = 5000) {
   const bar = document.getElementById('notification-bar');
 
-  // Build content: message + a close (×) button
   bar.innerHTML = `
     <span>${escapeHtml(message)}</span>
     <button
@@ -743,10 +651,8 @@ function showNotification(message, type = 'info', duration = 5000) {
   bar.className = `notification ${type}`;
   bar.classList.remove('hidden');
 
-  // Clear any previous auto-hide timer
   if (bar._hideTimer) clearTimeout(bar._hideTimer);
 
-  // Auto-dismiss after `duration` ms (skip if duration is 0)
   if (duration > 0) {
     bar._hideTimer = setTimeout(() => {
       bar.classList.add('hidden');
@@ -754,50 +660,27 @@ function showNotification(message, type = 'info', duration = 5000) {
   }
 }
 
-/**
- * handleApiError — the ONE place that decides what message to show the user
- * when any API call fails.
- *
- * Rules:
- *  - If fetch itself failed (network down / server crashed / no connection)
- *    → show a friendly "service unavailable" message
- *  - If the server responded but returned an error (4xx / 5xx)
- *    → show the server's friendly message (never raw technical internals)
- *
- * Usage in every catch block:
- *   } catch (err) {
- *     handleApiError(err);
- *   }
- *
- * @param {Error|Response} err     - The caught error OR a failed Response object
- * @param {object}         [data]  - Already-parsed JSON body from the response (optional)
- */
 function handleApiError(err, data = null) {
-  // ── Case 1: Network failure (server is completely down, no internet, CORS block)
-  // When fetch() itself throws, err is a TypeError with no status
+  
   if (err instanceof TypeError || (err && !err.status && !data)) {
     showNotification(
       'Unable to reach the server right now. Please check your connection and try again.',
       'error',
-      0   // stays on screen until user dismisses — because this is a persistent problem
+      0   
     );
     console.error('[Network Error]', err);
     return;
   }
 
-  // ── Case 2: Server responded with an error JSON body
-  // Use the server's friendly message if present, otherwise a generic fallback
   const message = (data && data.error)
     ? data.error
     : 'Something went wrong. Please try again in a moment.';
 
-  // Show warning (yellow) for 4xx user errors, error (red) for 5xx server crashes
   const type = (err && err.status && err.status < 500) ? 'error' : 'error';
 
   showNotification(message, type, 6000);
   console.error('[API Error]', err.status || '', message);
 }
-
 
 function getStatusBadgeClass(status) {
   switch (status) {

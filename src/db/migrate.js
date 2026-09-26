@@ -1,11 +1,4 @@
-/**
- * Database Migration & Seeding CLI script
- * 
- * Usage:
- *   node src/db/migrate.js --schema    (Runs schema.sql)
- *   node src/db/migrate.js --seed      (Runs seed.sql)
- *   node src/db/migrate.js --setup     (Runs both schema.sql and seed.sql)
- */
+
 const { runMigrations } = require('./index');
 
 async function main() {

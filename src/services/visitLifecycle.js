@@ -1,24 +1,6 @@
-/**
- * Visit Lifecycle & State Machine Service
- * 
- * Enforces the strict transition rules defined in Section 2.3 of the specification:
- * 
- * | From      | Action   | To        | Who may do it                     |
- * |-----------|----------|-----------|-----------------------------------|
- * | DRAFT     | Submit   | PENDING   | The officer who created the visit |
- * | PENDING   | Approve  | APPROVED  | An approver — never the creator   |
- * | PENDING   | Reject   | REJECTED  | An approver — never the creator   |
- * | REJECTED  | Resubmit | PENDING   | The officer who created the visit |
- * | APPROVED  | Complete | COMPLETED | The officer who created the visit |
- * | COMPLETED | —        | (terminal)| Nothing follows COMPLETED         |
- * 
- * Any request for a transition not in this list must be refused.
- * A rejection must carry a written remark; an approval may.
- */
 
 const { roles, visitStatus } = require('../config');
 
-// Define the authoritative state transition map
 const LEGAL_TRANSITIONS = {
   SUBMIT: {
     validSourceStates: [visitStatus.DRAFT, visitStatus.REJECTED],
@@ -42,15 +24,6 @@ const LEGAL_TRANSITIONS = {
   },
 };
 
-/**
- * Validates whether a state transition is legal for the given visit, user, and action.
- * 
- * @param {string} action - One of: 'SUBMIT', 'APPROVE', 'REJECT', 'COMPLETE'
- * @param {object} visit - Existing visit record from database
- * @param {object} user - Authenticated user making the request (id, role, etc.)
- * @param {string} [remarks] - Written remarks for approval or rejection
- * @returns {{ allowed: boolean, nextStatus?: string, error?: string, statusCode?: number }}
- */
 function validateTransition(action, visit, user, remarks) {
   const transition = LEGAL_TRANSITIONS[action];
 
@@ -62,7 +35,6 @@ function validateTransition(action, visit, user, remarks) {
     };
   }
 
-  // Check 1: Terminal state check
   if (visit.status === visitStatus.COMPLETED) {
     return {
       allowed: false,
@@ -71,7 +43,6 @@ function validateTransition(action, visit, user, remarks) {
     };
   }
 
-  // Check 2: Legal source status check
   if (!transition.validSourceStates.includes(visit.status)) {
     return {
       allowed: false,
@@ -80,13 +51,12 @@ function validateTransition(action, visit, user, remarks) {
     };
   }
 
-  // Check 3: Actor authorization and separation of duties
   const isCreator = visit.officer_id === user.id;
   const isApproverRole = user.role === roles.HQ_APPROVER || user.role === roles.ADMIN;
 
   switch (action) {
     case 'SUBMIT':
-      // DRAFT -> PENDING or REJECTED -> PENDING: Must be the officer who created the visit
+      
       if (!isCreator && user.role !== roles.ADMIN) {
         return {
           allowed: false,
@@ -98,8 +68,7 @@ function validateTransition(action, visit, user, remarks) {
 
     case 'APPROVE':
     case 'REJECT':
-      // PENDING -> APPROVED / REJECTED:
-      // Must be an approver or admin
+      
       if (!isApproverRole) {
         return {
           allowed: false,
@@ -107,7 +76,7 @@ function validateTransition(action, visit, user, remarks) {
           error: 'Only an HQ Approver or Admin may decide on visits.',
         };
       }
-      // Strict rule: "An approver — never the creator"
+      
       if (isCreator) {
         return {
           allowed: false,
@@ -115,7 +84,7 @@ function validateTransition(action, visit, user, remarks) {
           error: 'Separation of duties violation: An approver cannot approve or reject a visit they created.',
         };
       }
-      // A rejection must carry a written remark
+      
       if (action === 'REJECT') {
         if (!remarks || typeof remarks !== 'string' || remarks.trim().length === 0) {
           return {
@@ -128,7 +97,7 @@ function validateTransition(action, visit, user, remarks) {
       break;
 
     case 'COMPLETE':
-      // APPROVED -> COMPLETED: Must be the officer who created the visit
+      
       if (!isCreator && user.role !== roles.ADMIN) {
         return {
           allowed: false,
@@ -145,11 +114,6 @@ function validateTransition(action, visit, user, remarks) {
   };
 }
 
-/**
- * Validates whether a visit can be edited.
- * Specification: "Edits a visit. Only permitted while the visit is still editable."
- * Visits are editable only while in DRAFT or REJECTED state, and only by their creator.
- */
 function validateEditable(visit, user) {
   const isCreator = visit.officer_id === user.id;
 

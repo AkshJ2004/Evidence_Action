@@ -1,9 +1,4 @@
-/**
- * Authentication Routes
- * 
- * Implements login and current user profile inspection.
- * Passwords are verified against bcrypt hashes and never logged or exposed.
- */
+
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -13,10 +8,6 @@ const authenticate = require('../middleware/auth');
 
 const router = express.Router();
 
-/**
- * POST /api/auth/login
- * Accepts email and password, returns JWT token and user profile.
- */
 router.post('/login', async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -27,26 +18,23 @@ router.post('/login', async (req, res, next) => {
 
     const trimmedEmail = email.trim().toLowerCase();
 
-    // Query user by email
     const result = await db.query(
       'SELECT id, email, password_hash, full_name, role FROM users WHERE LOWER(email) = $1',
       [trimmedEmail]
     );
 
     if (result.rows.length === 0) {
-      // Use generic error message to prevent user enumeration
+      
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
     const user = result.rows[0];
 
-    // Verify bcrypt password hash
     const passwordValid = await bcrypt.compare(password, user.password_hash);
     if (!passwordValid) {
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
-    // Sign JWT token with user id and role
     const token = jwt.sign(
       {
         id: user.id,
@@ -72,10 +60,6 @@ router.post('/login', async (req, res, next) => {
   }
 });
 
-/**
- * GET /api/auth/me
- * Returns profile of currently authenticated user.
- */
 router.get('/me', authenticate, async (req, res) => {
   return res.json({ user: req.user });
 });

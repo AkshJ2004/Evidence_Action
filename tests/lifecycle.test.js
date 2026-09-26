@@ -1,24 +1,4 @@
-/**
- * Automated Test Suite: Visit Lifecycle (Section 2.3) & Server-Side Authorization (Section 3.3)
- * 
- * Tests strictly verify:
- * 1. Legal transitions:
- *    - DRAFT -> Submit -> PENDING (Creator)
- *    - PENDING -> Approve -> APPROVED (Approver)
- *    - PENDING -> Reject -> REJECTED (Approver, with mandatory remarks)
- *    - REJECTED -> Resubmit -> PENDING (Creator)
- *    - APPROVED -> Complete -> COMPLETED (Creator)
- * 2. Separation of duties:
- *    - Creator CANNOT approve or reject their own visit
- * 3. Terminal state:
- *    - Nothing follows COMPLETED
- * 4. Illegal transitions & invalid state mutations:
- *    - Cannot jump states (e.g., DRAFT -> COMPLETE)
- *    - Cannot edit a visit once it is APPROVED or COMPLETED
- * 5. Server-side authorization:
- *    - Field officer cannot access another officer's visit
- *    - Field officer cannot access HQ Summary (403)
- */
+
 const request = require('supertest');
 const app = require('../src/app');
 const { runMigrations, query } = require('../src/db');
@@ -35,44 +15,36 @@ describe('Visit Lifecycle (Section 2.3) & Authorization Suite', () => {
   let locationId;
 
   beforeAll(async () => {
-    // Initialize clean database state with schema and seed data
+    
     await runMigrations({ schema: true, seed: true });
 
-    // Authenticate Officer 1
     const resOff1 = await request(app)
       .post('/api/auth/login')
       .send({ email: 'officer1@evidenceaction.org', password: 'Password123!' });
     officer1Token = resOff1.body.token;
     officer1Id = resOff1.body.user.id;
 
-    // Authenticate Officer 2
     const resOff2 = await request(app)
       .post('/api/auth/login')
       .send({ email: 'officer2@evidenceaction.org', password: 'Password123!' });
     officer2Token = resOff2.body.token;
     officer2Id = resOff2.body.user.id;
 
-    // Authenticate Approver
     const resApp = await request(app)
       .post('/api/auth/login')
       .send({ email: 'approver@evidenceaction.org', password: 'Password123!' });
     approverToken = resApp.body.token;
     approverId = resApp.body.user.id;
 
-    // Authenticate Admin
     const resAdm = await request(app)
       .post('/api/auth/login')
       .send({ email: 'admin@evidenceaction.org', password: 'Password123!' });
     adminToken = resAdm.body.token;
 
-    // Fetch a valid location
     const locRes = await query('SELECT id FROM locations LIMIT 1');
     locationId = locRes.rows[0].id;
   });
 
-  // ---------------------------------------------------------------------------
-  // 1. Visit Creation & Initial State
-  // ---------------------------------------------------------------------------
   describe('Visit Creation', () => {
     it('creates a new visit in DRAFT state for a Field Officer', async () => {
       const res = await request(app)
@@ -109,9 +81,6 @@ describe('Visit Lifecycle (Section 2.3) & Authorization Suite', () => {
     });
   });
 
-  // ---------------------------------------------------------------------------
-  // 2. Lifecycle: DRAFT -> Submit -> PENDING
-  // ---------------------------------------------------------------------------
   describe('Lifecycle: DRAFT -> PENDING', () => {
     let visitId;
 
@@ -148,12 +117,9 @@ describe('Visit Lifecycle (Section 2.3) & Authorization Suite', () => {
     });
   });
 
-  // ---------------------------------------------------------------------------
-  // 3. Separation of Duties: Approver cannot be creator
-  // ---------------------------------------------------------------------------
   describe('Separation of Duties', () => {
     it('refuses approval if the decider is also the creator of the visit', async () => {
-      // Create a visit authored by Admin
+      
       const createRes = await request(app)
         .post('/api/visits')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -166,12 +132,10 @@ describe('Visit Lifecycle (Section 2.3) & Authorization Suite', () => {
         });
       const adminVisitId = createRes.body.visit.id;
 
-      // Submit to PENDING
       await request(app)
         .post(`/api/visits/${adminVisitId}/submit`)
         .set('Authorization', `Bearer ${adminToken}`);
 
-      // Admin tries to approve their own visit
       const approveRes = await request(app)
         .post(`/api/visits/${adminVisitId}/decide`)
         .set('Authorization', `Bearer ${adminToken}`)
@@ -182,9 +146,6 @@ describe('Visit Lifecycle (Section 2.3) & Authorization Suite', () => {
     });
   });
 
-  // ---------------------------------------------------------------------------
-  // 4. Lifecycle: PENDING -> Reject / Approve
-  // ---------------------------------------------------------------------------
   describe('Lifecycle: Decision on PENDING visits', () => {
     let visitId;
 
@@ -230,13 +191,12 @@ describe('Visit Lifecycle (Section 2.3) & Authorization Suite', () => {
     });
 
     it('allows officer to edit and resubmit a REJECTED visit back to PENDING', async () => {
-      // 1. Reject it
+      
       await request(app)
         .post(`/api/visits/${visitId}/decide`)
         .set('Authorization', `Bearer ${approverToken}`)
         .send({ action: 'REJECT', remarks: 'Cost is high, please revise.' });
 
-      // 2. Officer edits it
       const editRes = await request(app)
         .patch(`/api/visits/${visitId}`)
         .set('Authorization', `Bearer ${officer1Token}`)
@@ -245,7 +205,6 @@ describe('Visit Lifecycle (Section 2.3) & Authorization Suite', () => {
       expect(editRes.status).toBe(200);
       expect(parseFloat(editRes.body.visit.estimated_cost)).toBe(3200);
 
-      // 3. Officer resubmits (REJECTED -> PENDING)
       const resubmitRes = await request(app)
         .post(`/api/visits/${visitId}/submit`)
         .set('Authorization', `Bearer ${officer1Token}`);
@@ -265,14 +224,11 @@ describe('Visit Lifecycle (Section 2.3) & Authorization Suite', () => {
     });
   });
 
-  // ---------------------------------------------------------------------------
-  // 5. Lifecycle: APPROVED -> COMPLETED -> (terminal)
-  // ---------------------------------------------------------------------------
   describe('Lifecycle: Completion & Terminal State', () => {
     let visitId;
 
     beforeEach(async () => {
-      // Create visit
+      
       const createRes = await request(app)
         .post('/api/visits')
         .set('Authorization', `Bearer ${officer1Token}`)
@@ -285,12 +241,10 @@ describe('Visit Lifecycle (Section 2.3) & Authorization Suite', () => {
         });
       visitId = createRes.body.visit.id;
 
-      // Submit
       await request(app)
         .post(`/api/visits/${visitId}/submit`)
         .set('Authorization', `Bearer ${officer1Token}`);
 
-      // Approve
       await request(app)
         .post(`/api/visits/${visitId}/decide`)
         .set('Authorization', `Bearer ${approverToken}`)
@@ -307,19 +261,17 @@ describe('Visit Lifecycle (Section 2.3) & Authorization Suite', () => {
     });
 
     it('refuses any transitions from COMPLETED (terminal state)', async () => {
-      // Mark as completed
+      
       await request(app)
         .post(`/api/visits/${visitId}/complete`)
         .set('Authorization', `Bearer ${officer1Token}`);
 
-      // Try to submit again
       const submitRes = await request(app)
         .post(`/api/visits/${visitId}/submit`)
         .set('Authorization', `Bearer ${officer1Token}`);
       expect(submitRes.status).toBe(400);
       expect(submitRes.body.error).toMatch(/terminal state/i);
 
-      // Try to decide again
       const decideRes = await request(app)
         .post(`/api/visits/${visitId}/decide`)
         .set('Authorization', `Bearer ${approverToken}`)
@@ -327,7 +279,6 @@ describe('Visit Lifecycle (Section 2.3) & Authorization Suite', () => {
       expect(decideRes.status).toBe(400);
       expect(decideRes.body.error).toMatch(/terminal state/i);
 
-      // Try to complete again
       const completeRes = await request(app)
         .post(`/api/visits/${visitId}/complete`)
         .set('Authorization', `Bearer ${officer1Token}`);
@@ -346,9 +297,6 @@ describe('Visit Lifecycle (Section 2.3) & Authorization Suite', () => {
     });
   });
 
-  // ---------------------------------------------------------------------------
-  // 6. Server-Side Authorization & Information Security
-  // ---------------------------------------------------------------------------
   describe('Server-Side Authorization Constraints', () => {
     let officer1VisitId;
 

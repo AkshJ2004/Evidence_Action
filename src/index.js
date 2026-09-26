@@ -1,13 +1,11 @@
-/**
- * Main Application Server Entrypoint
- */
+
 const app = require('./app');
 const config = require('./config');
 const { getDb } = require('./db');
 
 async function startServer() {
   try {
-    // Ensure database connection is ready
+    
     await getDb();
 
     app.listen(config.port, () => {
