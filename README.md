@@ -235,3 +235,18 @@ An AI assistant was used as a pair-programming tool throughout development. Belo
 - **Rejection remarks enforcement moved to the database layer.** The AI initially suggested validating rejection remarks only at the controller (JavaScript) layer. I rejected this and added a PostgreSQL check constraint (`chk_decision_remarks`) directly on the `approval_decisions` table, ensuring the rule holds even if someone writes a script that bypasses the API.
 - **Separation of duties made strict.** The AI initially suggested a soft advisory check on approver identity. I enforced it as a hard block (`visit.officer_id !== req.user.id`) in the lifecycle service and added explicit test coverage for it.
 - **Wildcard routing adjusted for Express compatibility.** The AI generated `app.get('*', ...)` catch-all routes, which crash with newer versions of `path-to-regexp` used by modern Express. I replaced these with path-less fallback middleware (`app.use((req, res) => ...)`) which works correctly across all Express versions.
+
+### Security review and fixes (post-build):
+After the core application was built, I tested and reviewed the running system to identify real security and correctness issues. I found the following problems myself and then used the AI to implement the specific fixes I specified:
+
+- **Hardcoded JWT secret in a public repository.** The AI-generated config had a fallback secret (`process.env.JWT_SECRET || 'dev_super_secret...'`). I caught that this literal string was sitting in plaintext on a public GitHub repo — meaning anyone who had ever seen the code could forge a valid admin token. I directed the AI to change this so the server throws a fatal error at startup in production if `JWT_SECRET` is not explicitly set, with a visible warning in development.
+
+- **CORS wide open (`app.use(cors())` with no configuration).** The AI left CORS fully open — any website on the internet could make authenticated cross-origin requests to this API if it had a valid token. I identified this as a real security gap and directed the AI to lock it to the specific allowed origins only, rejecting requests from any other origin.
+
+- **Race condition in the approve/reject flow.** I identified a subtle concurrency bug: the `POST /:id/decide` route read the visit status outside the transaction and then ran an `UPDATE` inside the transaction with no `WHERE status = 'PENDING'` guard. Two concurrent approvers could both pass the status check before either committed, resulting in two conflicting rows in `approval_decisions` for a single visit. I directed the AI to add the status guard directly on the `UPDATE` inside the transaction, and to reject the second concurrent request with a `409 Conflict` if the row was already processed.
+
+- **Health check that always returned healthy.** The `/api/health` endpoint returned `"status": "healthy"` unconditionally — it never actually checked the database connection. I pointed this out and directed the AI to make it run a real `SELECT 1` query and return `503 Unhealthy` if the database is unreachable.
+
+- **Missing HTTP security headers.** The app served no security headers — no `X-Frame-Options`, no `X-Content-Type-Options`, no `Content-Security-Policy`. I directed the AI to add the `helmet` package, which applies all standard headers in a single middleware call.
+
+All five issues above were identified through my own review of the code and the running system. The AI wrote the corrective code based on my specific direction and my description of exactly what was wrong and why.
