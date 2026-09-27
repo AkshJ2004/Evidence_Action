@@ -382,13 +382,24 @@ router.post('/:id/decide', async (req, res, next) => {
     try {
       await client.query('BEGIN');
 
+      // Guard against race conditions: two approvers clicking simultaneously.
+      // The WHERE status = 'PENDING' clause means only the FIRST request wins —
+      // the second will match zero rows (rowCount === 0) and be rejected with 409.
       const updateResult = await client.query(
-        `UPDATE visits 
-         SET status = $1, updated_at = CURRENT_TIMESTAMP 
-         WHERE id = $2 
+        `UPDATE visits
+         SET status = $1, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2 AND status = 'PENDING'
          RETURNING *`,
         [nextStatus, id]
       );
+
+      if (updateResult.rowCount === 0) {
+        // Another request already processed this decision — the visit is no longer PENDING.
+        await client.query('ROLLBACK');
+        return res.status(409).json({
+          error: 'This visit has already been decided by another approver. Refresh and try again.',
+        });
+      }
 
       const decisionResult = await client.query(
         `INSERT INTO approval_decisions (visit_id, decider_id, action, remarks)
@@ -415,7 +426,9 @@ router.post('/:id/decide', async (req, res, next) => {
   }
 });
 
+
 router.post('/:id/complete', async (req, res, next) => {
+
   try {
     const { id } = req.params;
 
