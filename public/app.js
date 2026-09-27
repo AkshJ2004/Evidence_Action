@@ -13,10 +13,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (state.token && state.currentUser) {
     showWorkspace();
     await loadLocations();
-    await loadVisits();
-    if (canAccessSummary()) {
-      await loadSummary();
-    }
   } else {
     showAuth();
   }
@@ -58,10 +54,6 @@ async function performLogin(email, password) {
     showNotification(`Welcome back, ${data.user.full_name}!`, 'success');
     showWorkspace();
     await loadLocations();
-    await loadVisits();
-    if (canAccessSummary()) {
-      await loadSummary();
-    }
   } catch (err) {
     
     handleApiError(err);

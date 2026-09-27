@@ -353,4 +353,8 @@ describe('Visit Lifecycle (Section 2.3) & Authorization Suite', () => {
       expect(Array.isArray(res.body.summary.location_breakdown)).toBe(true);
     });
   });
+
+  afterAll(async () => {
+    await runMigrations({ schema: true, seed: true });
+  });
 });
